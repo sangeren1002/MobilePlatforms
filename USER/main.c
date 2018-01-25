@@ -2,18 +2,12 @@
 #include "delay.h"
 #include "usart.h"
 #include "led.h"
-#include "beep.h"
+#include "lcd.h"
 #include "key.h"
+#include "rs485.h"
 #include "dma.h"
 
 
-
-//ALIENTEK Ì½Ë÷ÕßSTM32F407¿ª·¢°å ÊµÑé4
-//´®¿ÚÍ¨ÐÅÊµÑé -¿âº¯Êý°æ±¾
-//¼¼ÊõÖ§³Ö£ºwww.openedv.com
-//ÌÔ±¦µêÆÌ£ºhttp://eboard.taobao.com
-//¹ãÖÝÊÐÐÇÒíµç×Ó¿Æ¼¼ÓÐÏÞ¹«Ë¾  
-//×÷Õß£ºÕýµãÔ­×Ó @ALIENTEK
 uint8_t motor_model[14]                =  {0};   /* Ö±ÐÐµç»ú²Ù×÷Ä£Ê½Ñ¡ÔñÃüÁî´®¿Ú·¢ËÍ»º´æÇø */
 uint8_t motor_outline[14]              =  {0};   /* Ö±ÐÐµç»úÔË¶¯ÂÖÀªÑ¡ÔñÃüÁî´®¿Ú·¢ËÍ»º´æÇø */
 uint8_t motor_disable[14]              =  {0};   /* Ö±ÐÐµç»ú¿ØÖÆ×Ö¹ØÃüÁî´®¿Ú·¢ËÍ»º´æÇø */
@@ -29,6 +23,7 @@ uint8_t recv_node3[10]                 =  {0};   /* 3ºÅÖ±ÐÐµç»úÍ¨Ñ¶·µ»ØÊý¾Ý»º´æÇ
 uint8_t recv_node4[10]                 =  {0};   /* 4ºÅÖ±ÐÐµç»úÍ¨Ñ¶·µ»ØÊý¾Ý»º´æÇø */
 u8 flag =0;
 u8 fun_motor = 0;
+
 uint16_t CalcFieldCRC(uint16_t* pDataArray, uint16_t numberOfWords)
 {
 	uint16_t shifter, c;
@@ -344,7 +339,6 @@ History:
 void StraightMotorSetSpeed(uint16_t node)
 {
 	uint16_t motor_datarray[7] = {0};
-	uint32_t motor_node1_rev = 0x03e8;
 	uint8_t i;
 	uint8_t node_tmp = node>>8;
 	node = node<<8;
@@ -360,12 +354,12 @@ void StraightMotorSetSpeed(uint16_t node)
 	{
 		if(node == 0x0200 || node == 0x0400)
 		{
-			motor_datarray[3] = 0x0190;
+			motor_datarray[3] = 0x01f4;
 			motor_datarray[4] = 0x0000;
 		}
 		else if(node == 0x0100 || node == 0x0300)
 		{
-			motor_datarray[3] = 0xfe6f;
+			motor_datarray[3] = 0xfe0b;
 			motor_datarray[4] = 0xffff;
 		}
 	}
@@ -373,16 +367,28 @@ void StraightMotorSetSpeed(uint16_t node)
 	{
 		 if(node == 0x0100 || node == 0x0300)
 		{
-			motor_datarray[3] = 0x0190;
+			motor_datarray[3] = 0x01f4;
 			motor_datarray[4] = 0x0000;
 		}
 		else if(node == 0x0200 || node == 0x0400)
 		{
-			motor_datarray[3] = 0xfe6f;
+			motor_datarray[3] = 0xfe0b;
 			motor_datarray[4] = 0xffff;
 		}
 	}
-	
+	else if(fun_motor == 3)
+	{
+//		 if(node == 0x0100 || node == 0x0300)
+//		{
+			motor_datarray[3] = 0x01f4;
+			motor_datarray[4] = 0x0000;
+//		}
+//		else if(node == 0x0200 || node == 0x0400)
+//		{
+//			motor_datarray[3] = 0xfc17;
+//			motor_datarray[4] = 0xffff;
+//		}
+	}
 	
 //		if(node==0x0200||node==0x0400)
 //	{
@@ -550,87 +556,105 @@ void StraightMotorStop(uint16_t node)
 		}
 		delay_ms(10);
 }
+
+
 int main(void)
 { 
- 
-	u8 t;
-	u8 i;
-	u8 len=1;	
-	u16 times=0; 
-	char buf[]={0x11,0x13};	
+	u8 key;
+	u8 i=0,t=0;
+	u8 cnt=0;
+	u8 rs485buf[12]="1FL-20000"; 
+	u8 rs485buf1[4][15]={"1FL25000\r\n","2FL25000\r\n","3FL-25000\r\n","4FL-25000\r\n"};
+		u8 rs485bufret[4][15]={"1FL-25000\r\n","2FL-25000\r\n","3FL25000\r\n","4FL25000\r\n"};
+	u8 rs485buf2[4][15]={"1AR\r\n","2AR\r\n","3AR\r\n","4AR\r\n"};
 
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);//ÉèÖÃÏµÍ³ÖÐ¶ÏÓÅÏÈ¼¶·Ö×é2
+	delay_init(168);   //³õÊ¼»¯ÑÓÊ±º¯Êý
+	uart_init(115200);	//³õÊ¼»¯´®¿Ú²¨ÌØÂÊÎª115200
 	MYDMA_Config(DMA2_Stream2,DMA_Channel_4,(u16)&USART1->DR,(u16)recv,10);
-	delay_init(168);		//ÑÓÊ±³õÊ¼»¯ 
-	uart_init(115200);	//´®¿Ú³õÊ¼»¯²¨ÌØÂÊÎª115200
-	LED_Init();		  		//³õÊ¼»¯ÓëLEDÁ¬½ÓµÄÓ²¼þ½Ó¿Ú  
-	KEY_Init();
+	LED_Init();					//³õÊ¼»¯LED 
+ 	LCD_Init();					//LCD³õÊ¼»¯ 
+	KEY_Init(); 				//°´¼ü³õÊ¼»¯  
+	RS485_Init(9600);		//³õÊ¼»¯RS485´®¿Ú2
+ 	POINT_COLOR=RED;//ÉèÖÃ×ÖÌåÎªºìÉ« 
+	LCD_ShowString(30,50,200,16,16,"Explorer STM32F4");	
+	LCD_ShowString(30,70,200,16,16,"RS485 TEST");	
+	LCD_ShowString(30,90,200,16,16,"ATOM@ALIENTEK");
+	LCD_ShowString(30,110,200,16,16,"2014/5/7");	
+	LCD_ShowString(30,130,200,16,16,"KEY0:Send");    	//ÏÔÊ¾ÌáÊ¾ÐÅÏ¢		
+ 
+ 	POINT_COLOR=BLUE;//ÉèÖÃ×ÖÌåÎªÀ¶É«	  
+	LCD_ShowString(30,150,200,16,16,"Count:");			  //ÏÔÊ¾µ±Ç°¼ÆÊýÖµ	
+	LCD_ShowString(30,170,200,16,16,"Send Data:");		//ÌáÊ¾·¢ËÍµÄÊý¾Ý	
+	LCD_ShowString(30,210,200,16,16,"Receive Data:");	//ÌáÊ¾½ÓÊÕµ½µÄÊý¾Ý		
+ 			
+
+	for(i=0;i<4;i++)
+	{
+		RS485_Send_Data(rs485buf2[i],strlen(rs485buf2[i]));//·¢ËÍ5¸ö×Ö½Ú 	
+		delay_ms(100);	
+		
+	}
 	StraightMotorInit(0x0001);
 	StraightMotorInit(0x0002);
 	StraightMotorInit(0x0003);
 	StraightMotorInit(0x0004);
+	
 	while(1)
 	{
-			
-	fun_motor = KEY_Scan(0);	
-	if(fun_motor==WKUP_PRES)		
-	{
-		StraightMotorSetSpeed(0x0001);
-		StraightMotorSetSpeed(0x0002);
-		StraightMotorSetSpeed(0x0003);
-		StraightMotorSetSpeed(0x0004);
-	}
-	if(fun_motor==KEY0_PRES)		
-	{
-		StraightMotorStop(0x01);
-		StraightMotorStop(0x02);
-		StraightMotorStop(0x03);
-		StraightMotorStop(0x04);
-	}
-		if(fun_motor==KEY1_PRES)		
-	{
-		StraightMotorSetSpeed(0x0001);
-		StraightMotorSetSpeed(0x0002);
-		StraightMotorSetSpeed(0x0003);
-		StraightMotorSetSpeed(0x0004);
-	}
-//				else 
-//									printf("ÕýµãÔ­×Ó@ALIENTEK\r\n\r\n\r\n");
-	
-//		if(len ==0 )
-//		{
-//			StraightMotorInit(0x0100);
-//			len = 1;
-//		}
-////		if(USART_RX_STA&0x8000)
-////		{					   
-////			len=USART_RX_STA&0x3fff;//µÃµ½´Ë´Î½ÓÊÕµ½µÄÊý¾Ý³¤¶È
-////			if(USART_RX_BUF[0] == 0x4f && USART_RX_BUF[1] == 0x4f &&
-////				 USART_RX_BUF[2] == 0x00 && USART_RX_BUF[3] ==0x01 &&
-////				 USART_RX_BUF[4] == 0x00 && USART_RX_BUF[5] ==0x00 &&
-////				 USART_RX_BUF[6] == 0x00 && USART_RX_BUF[7] ==0x00 &&
-////				 USART_RX_BUF[8] == 0x51 && USART_RX_BUF[9] ==0xaa) len=2;
-//			for(t=0;t<len;t++)
-//			{
-//				USART_RX_BUF[0]
-//				USART_SendData(USART1, USART_RX_BUF[t]);         //Ïò´®¿Ú1·¢ËÍÊý¾Ý
-//				while(USART_GetFlagStatus(USART1,USART_FLAG_TC)!=SET);//µÈ´ý·¢ËÍ½áÊø
-//			}
-//			printf("\r\n\r\n");//²åÈë»»ÐÐ
-//			USART_RX_STA=0;
-//		}
-//	else
-//		{
-//			times++;
-//			if(times%5000==0)
-//			{
-//				printf("\r\nALIENTEK Ì½Ë÷ÕßSTM32F407¿ª·¢°å ´®¿ÚÊµÑé\r\n");
-//				printf("ÕýµãÔ­×Ó@ALIENTEK\r\n\r\n\r\n");
-//			}
-//			if(times%200==0)printf("ÇëÊäÈëÊý¾Ý,ÒÔ»Ø³µ¼ü½áÊø\r\n");  
-//			if(times%30==0)LED0=!LED0;//ÉÁË¸LED,ÌáÊ¾ÏµÍ³ÕýÔÚÔËÐÐ.
-//			delay_ms(10);   
-//		}
-	}
-}
+		fun_motor=KEY_Scan(0);
+		if(fun_motor==WKUP_PRES)		
+		{
+			StraightMotorSetSpeed(0x0001);
+			StraightMotorSetSpeed(0x0002);
+			StraightMotorSetSpeed(0x0003);
+			StraightMotorSetSpeed(0x0004);
+		}
+		if(fun_motor==KEY0_PRES)		
+		{
 
+			StraightMotorStop(0x01);
+			StraightMotorStop(0x02);
+			StraightMotorStop(0x03);
+			StraightMotorStop(0x04);
+			for(i=0;i<4;i++)
+			{
+				RS485_Send_Data(rs485bufret[i],strlen(rs485bufret[i]));
+				delay_ms(20);
+			}
+		}
+		if(fun_motor==KEY2_PRES)//KEY2°´ÏÂ,·¢ËÍÒ»´ÎÊý¾Ý
+		{
+			StraightMotorStop(0x01);
+			StraightMotorStop(0x02);
+			StraightMotorStop(0x03);
+			StraightMotorStop(0x04);
+			delay_ms(1000);
+			for(i=0;i<4;i++)
+			{
+				RS485_Send_Data(rs485buf1[i],strlen(rs485buf1[i]));//·¢ËÍ5¸ö×Ö½Ú 	
+				delay_ms(20);				
+ 			}	
+			StraightMotorSetSpeed(0x0001);
+			StraightMotorSetSpeed(0x0002);
+			StraightMotorSetSpeed(0x0003);
+			StraightMotorSetSpeed(0x0004);								
+		}		 
+		if(fun_motor==KEY1_PRES)//KEY0°´ÏÂ,·¢ËÍÒ»´ÎÊý¾Ý
+		{
+			StraightMotorSetSpeed(0x0001);
+			StraightMotorSetSpeed(0x0002);
+			StraightMotorSetSpeed(0x0003);
+			StraightMotorSetSpeed(0x0004);
+										   
+		}	
+		t++; 
+		delay_ms(10);
+		if(t==20)
+		{
+			LED0=!LED0;//ÌáÊ¾ÏµÍ³ÕýÔÚÔËÐÐ	
+			t=0;
+			cnt++;
+		}		   
+	}   
+}

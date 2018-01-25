@@ -39,6 +39,8 @@
 ..\obj\main.o: ..\SYSTEM\usart\usart.h
 ..\obj\main.o: D:\install\KEIL5\ARM\ARMCC\Bin\..\include\stdio.h
 ..\obj\main.o: ..\HARDWARE\LED\led.h
-..\obj\main.o: ..\HARDWARE\BEEP\beep.h
+..\obj\main.o: ..\HARDWARE\LCD\lcd.h
+..\obj\main.o: D:\install\KEIL5\ARM\ARMCC\Bin\..\include\stdlib.h
 ..\obj\main.o: ..\HARDWARE\KEY\key.h
+..\obj\main.o: ..\HARDWARE\RS485\rs485.h
 ..\obj\main.o: ..\HARDWARE\DMA\dma.h

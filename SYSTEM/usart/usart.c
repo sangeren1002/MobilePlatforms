@@ -105,7 +105,7 @@ void uart_init(u32 bound){
 	//USART_ClearFlag(USART1, USART_FLAG_TC);
 	
 #if EN_USART1_RX	
-//	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启相关中断
+	USART_ITConfig(USART1, USART_IT_RXNE, ENABLE);//开启相关中断
 
 	//Usart1 NVIC 配置
   NVIC_InitStructure.NVIC_IRQChannel = USART1_IRQn;//串口1中断通道
@@ -133,12 +133,12 @@ void USART1_IRQHandler(void)                	//串口1中断服务程序
 		{
 			if(USART_RX_STA&0x4000)//接收到了0x0d
 			{
-				if(Res!=0xaa)USART_RX_STA=0;//接收错误,重新开始
+				if(Res!=0x0a)USART_RX_STA=0;//接收错误,重新开始
 				else USART_RX_STA|=0x8000;	//接收完成了 
 			}
 			else //还没收到0X0D
 			{	
-				if(Res==0x51)USART_RX_STA|=0x4000;
+				if(Res==0x0d)USART_RX_STA|=0x4000;
 				else
 				{
 					USART_RX_BUF[USART_RX_STA&0X3FFF]=Res ;
